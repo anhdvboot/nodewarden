@@ -1,15 +1,15 @@
-name: Sync R2 Backup to Google Drive
+name: ☁️ Sync R2 Backup to Google Drive
 
 on:
   workflow_dispatch:
     inputs:
       backup_type:
-        description: 'Khong dung o workflow nay - giu lai de tuong thich voi Worker dispatch chung'
+        description: 'Không dùng ở workflow này — giữ lại để tương thích với Worker dispatch chung'
         required: false
         default: 'scheduled'
         type: string
       backup_note:
-        description: 'Khong dung o workflow nay - giu lai de tuong thich voi Worker dispatch chung'
+        description: 'Không dùng ở workflow này — giữ lại để tương thích với Worker dispatch chung'
         required: false
         default: ''
         type: string
@@ -17,11 +17,11 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    name: Dong bo R2 sang Google Drive
+    name: ☁️ Đồng bộ R2 → Google Drive
     steps:
-      - name: Cai rclone va dong bo toan bo bucket
+      - name: ☁️ Cài rclone và đồng bộ toàn bộ bucket
         run: |
-          echo "Cai rclone..."
+          echo "☁️ Cài rclone..."
           curl -s https://rclone.org/install.sh | sudo bash >/dev/null 2>&1
 
           mkdir -p ~/.config/rclone
@@ -29,22 +29,25 @@ jobs:
 
           R2_REMOTE=":s3,provider=Cloudflare,access_key_id=${{ secrets.R2_ACCESS_KEY_ID }},secret_access_key=${{ secrets.R2_SECRET_ACCESS_KEY }},endpoint='https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com':nodewarden-backup"
 
-          echo "Dong bo toan bo bucket nodewarden-backup sang Google Drive..."
+          echo "🔄 Đồng bộ toàn bộ bucket nodewarden-backup sang Google Drive..."
           if rclone copy "$R2_REMOTE" "gdrive-worker:rclone-backup/nodewarden-backups/" --progress; then
-            echo "Dong bo thanh cong"
+            echo "✅ Đồng bộ thành công"
           else
-            echo "Dong bo that bai"
+            echo "❌ Đồng bộ thất bại"
             rm -f ~/.config/rclone/rclone.conf
             exit 1
           fi
 
+          echo "🗑️ Dọn backup Google Drive quá 30 ngày..."
+          rclone delete "gdrive-worker:rclone-backup/nodewarden-backups/" --min-age 30d 2>&1 || echo "⚠️ Dọn dẹp Google Drive thất bại (không chặn job)"
+
           rm -f ~/.config/rclone/rclone.conf
 
-      - name: Gui canh bao Telegram neu dong bo that bai
+      - name: 🚨 Gửi cảnh báo Telegram nếu đồng bộ thất bại
         if: failure()
         run: |
-          MESSAGE="CANH BAO nodewarden: Dong bo backup R2 sang Google Drive THAT BAI
-          Thoi gian: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          MESSAGE="🚨 <b>nodewarden</b>: Đồng bộ backup R2 → Google Drive THẤT BẠI
+          Thời gian: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           PAYLOAD=$(jq -n --arg chat_id "${{ secrets.TELEGRAM_CHAT_ID }}" --arg text "$MESSAGE" '{chat_id: $chat_id, text: $text, parse_mode: "HTML"}')
