@@ -1,0 +1,54 @@
+name: Sync R2 Backup to Google Drive
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Khong dung o workflow nay - giu lai de tuong thich voi Worker dispatch chung'
+        required: false
+        default: 'scheduled'
+        type: string
+      backup_note:
+        description: 'Khong dung o workflow nay - giu lai de tuong thich voi Worker dispatch chung'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    name: Dong bo R2 sang Google Drive
+    steps:
+      - name: Cai rclone va dong bo toan bo bucket
+        run: |
+          echo "Cai rclone..."
+          curl -s https://rclone.org/install.sh | sudo bash >/dev/null 2>&1
+
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG_B64 }}" | base64 -d > ~/.config/rclone/rclone.conf
+
+          R2_REMOTE=":s3,provider=Cloudflare,access_key_id=${{ secrets.R2_ACCESS_KEY_ID }},secret_access_key=${{ secrets.R2_SECRET_ACCESS_KEY }},endpoint='https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com':nodewarden-backup"
+
+          echo "Dong bo toan bo bucket nodewarden-backup sang Google Drive..."
+          if rclone copy "$R2_REMOTE" "gdrive-worker:rclone-backup/nodewarden-backups/" --progress; then
+            echo "Dong bo thanh cong"
+          else
+            echo "Dong bo that bai"
+            rm -f ~/.config/rclone/rclone.conf
+            exit 1
+          fi
+
+          rm -f ~/.config/rclone/rclone.conf
+
+      - name: Gui canh bao Telegram neu dong bo that bai
+        if: failure()
+        run: |
+          MESSAGE="CANH BAO nodewarden: Dong bo backup R2 sang Google Drive THAT BAI
+          Thoi gian: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          PAYLOAD=$(jq -n --arg chat_id "${{ secrets.TELEGRAM_CHAT_ID }}" --arg text "$MESSAGE" '{chat_id: $chat_id, text: $text, parse_mode: "HTML"}')
+
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
