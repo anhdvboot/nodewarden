@@ -40,15 +40,15 @@ jobs:
 
           rm -f ~/.config/rclone/rclone.conf
 
-      - name: Gui canh bao Telegram neu dong bo that bai
+        - name: Gui canh bao Telegram neu dong bo that bai
         if: failure()
         run: |
           MESSAGE="CANH BAO nodewarden: Dong bo backup R2 sang Google Drive THAT BAI
-Thoi gian: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          Thoi gian: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           PAYLOAD=$(jq -n --arg chat_id "${{ secrets.TELEGRAM_CHAT_ID }}" --arg text "$MESSAGE" '{chat_id: $chat_id, text: $text, parse_mode: "HTML"}')
 
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
+            -d "$PAYLOAD"  
